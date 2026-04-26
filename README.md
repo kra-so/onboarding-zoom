@@ -1,8 +1,12 @@
 # onboarding-zoom
 
-Cinematic, zoom-driven onboarding tours for live websites — like a screencast that runs against your real product.
+> Cinematic onboarding tours for live websites.
+
+![Demo](demo.gif)
 
 The camera flies around the page, zooms into the feature you want to highlight, animates a fake cursor, makes the click, shows the result, then pans to the next hotspot. Replaces the dilemma of "describe the new feature in a tooltip vs. record a separate screencast" with a guided, cinematic experience that lives on your real UI.
+
+**[Live demo →](https://kra-so.github.io/onboarding-zoom/demo.html)**
 
 - No dependencies. Single ~30kb file (uncompressed), drop in via `<script>`.
 - Works on any HTML page. No framework lock-in.
