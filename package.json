@@ -1,0 +1,42 @@
+{
+  "name": "onboarding-zoom",
+  "version": "0.1.0",
+  "description": "Cinematic, zoom-driven onboarding tours for live websites",
+  "main": "onboarding-zoom.js",
+  "browser": "onboarding-zoom.min.js",
+  "homepage": "https://kra-so.github.io/onboarding-zoom/demo.html",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kra-so/onboarding-zoom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kra-so/onboarding-zoom/issues"
+  },
+  "author": "Andrei Krasilnikov <a@kra.so>",
+  "files": [
+    "onboarding-zoom.js",
+    "onboarding-zoom.min.js",
+    "locales/*.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "npm run build:lib && npm run build:locales && npm run sizes",
+    "build:lib": "terser onboarding-zoom.js -o onboarding-zoom.min.js --compress --mangle --comments=/^!/",
+    "build:locales": "node build-locales.js",
+    "sizes": "node -e \"const fs=require('fs'),zlib=require('zlib');['onboarding-zoom.js','onboarding-zoom.min.js','locales/all.js','locales/all.min.js'].forEach(f=>{const b=fs.readFileSync(f);const g=zlib.gzipSync(b);console.log(f.padEnd(34)+(b.length+'').padStart(7)+' bytes  '+(g.length+'').padStart(6)+' gzip')});\""
+  },
+  "keywords": [
+    "onboarding",
+    "tour",
+    "walkthrough",
+    "guided-tour",
+    "zoom",
+    "cinematic",
+    "feature-introduction"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "terser": "^5.31.0"
+  }
+}

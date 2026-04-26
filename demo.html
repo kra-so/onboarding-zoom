@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>onboarding-zoom — live demo</title>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --panel: #fff;
+    --ink: #1f2330;
+    --muted: #6b7080;
+    --accent: #6366f1;
+    --line: #e7e9f1;
+    --yellow: #fde68a;
+    --green: #bbf7d0;
+    --pink: #fbcfe8;
+    --blue: #bfdbfe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg);
+  }
+  /* fixed header — auto-excluded from camera */
+  .site-header {
+    position: fixed; top: 0; left: 0; right: 0; height: 56px;
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; z-index: 50;
+  }
+  .site-header .brand {
+    font-weight: 700; letter-spacing: -0.2px;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .site-header nav {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .start-tour {
+    appearance: none; border: 0; cursor: pointer;
+    background: var(--accent); color: white; font: inherit;
+    font-size: 13px; font-weight: 600;
+    padding: 8px 14px; border-radius: 8px;
+    white-space: nowrap;
+  }
+  .start-tour:hover { filter: brightness(1.08); }
+
+  /* Settings dropdown trigger (gear) */
+  .settings-trigger {
+    appearance: none; border: 1px solid var(--line); background: white;
+    cursor: pointer; padding: 0;
+    color: var(--muted);
+    border-radius: 8px;
+    width: 34px; height: 34px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: color 120ms, border-color 120ms, background 120ms;
+  }
+  .settings-trigger:hover {
+    color: var(--ink); border-color: #d2d6e0;
+    background: #fafbfd;
+  }
+  .settings-trigger svg { width: 16px; height: 16px; display: block; }
+
+  /* Popover panel */
+  .settings-pop {
+    position: fixed;
+    top: 64px; right: 14px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+    padding: 16px;
+    min-width: 240px;
+    z-index: 60;
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity 160ms ease, transform 200ms cubic-bezier(.2,.8,.2,1);
+  }
+  .settings-pop.is-open {
+    opacity: 1; transform: translateY(0);
+    pointer-events: auto;
+  }
+  .settings-pop .field {
+    display: block;
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--muted); font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .settings-pop .field + select { margin-bottom: 14px; }
+  .settings-pop .field + select:last-of-type { margin-bottom: 0; }
+  .settings-pop select {
+    width: 100%; box-sizing: border-box;
+    font: inherit; font-size: 14px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white; color: var(--ink);
+    cursor: pointer;
+  }
+  .settings-pop .reset-link {
+    display: block; width: 100%;
+    padding: 10px 0 0; margin-top: 14px;
+    border: 0; border-top: 1px solid var(--line);
+    text-align: left;
+    background: transparent;
+    cursor: pointer;
+    font: inherit; font-size: 13px; color: var(--muted);
+  }
+  .settings-pop .reset-link:hover { color: var(--ink); }
+
+  @media (max-width: 640px) {
+    .site-header { padding: 0 14px; }
+    .site-header .brand { font-size: 15px; }
+    .start-tour { padding: 7px 11px; font-size: 12.5px; }
+    .settings-pop { left: 14px; right: 14px; min-width: 0; }
+  }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 88px 24px 64px; }
+
+  .hero { margin-bottom: 28px; }
+  .hero h1 { font-size: 32px; margin: 0 0 6px; letter-spacing: -0.4px; }
+  .hero p { color: var(--muted); margin: 0; }
+
+  .layout {
+    display: grid; gap: 20px;
+    grid-template-columns: 240px 1fr 280px;
+  }
+  @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px;
+  }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+
+  .legend-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  .legend-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; background: #f5f6fa;
+  }
+  .legend-swatch {
+    width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.06);
+  }
+  .legend-name { font-size: 14px; }
+
+  #editor { line-height: 1.85; font-size: 16px; }
+  #editor p {
+    margin: 0 0 14px; padding: 6px 4px; border-radius: 4px;
+    transition: background 250ms;
+  }
+  #editor p.is-active { background: rgba(99,102,241,0.06); }
+  #editor mark {
+    padding: 1px 2px; border-radius: 3px;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  }
+  mark.m-yellow { background: var(--yellow); }
+  mark.m-green  { background: var(--green); }
+  mark.m-pink   { background: var(--pink); }
+  mark.m-blue   { background: var(--blue); }
+
+  .toolbar {
+    display: flex; gap: 8px; margin-bottom: 14px; align-items: center;
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px;
+    background: #fafbfd;
+  }
+  .toolbar-label { color: var(--muted); font-size: 13px; margin-right: 4px; }
+  .marker {
+    appearance: none; border: 0; cursor: pointer;
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.07);
+    transition: transform 120ms;
+  }
+  .marker:hover { transform: scale(1.06); }
+  .marker[data-color="yellow"] { background: var(--yellow); }
+  .marker[data-color="green"]  { background: var(--green); }
+  .marker[data-color="pink"]   { background: var(--pink); }
+  .marker[data-color="blue"]   { background: var(--blue); }
+
+  .stats { display: grid; gap: 8px; }
+  .stat {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 10px; background: #f5f6fa; border-radius: 8px;
+  }
+  .stat .label { font-size: 13px; color: var(--muted); }
+  .stat .value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  footer {
+    text-align: center; color: var(--muted); margin-top: 40px; font-size: 13px;
+  }
+  code { background: #ecedf3; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand">Annotate</div>
+  <nav>
+    <button class="settings-trigger" id="settings-trigger" aria-label="Demo settings" aria-expanded="false" aria-controls="settings-pop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+    <button class="start-tour" id="btn-start-tour">Show me around</button>
+  </nav>
+</header>
+
+<div class="settings-pop" id="settings-pop" role="dialog" aria-label="Demo settings">
+  <label class="field" for="theme-pick">Theme</label>
+  <select id="theme-pick">
+    <option value="dark">Dark</option>
+    <option value="light">Light</option>
+    <option value="brand">Brand (custom)</option>
+  </select>
+
+  <label class="field" for="lang-pick">Tour language</label>
+  <select id="lang-pick">
+    <option value="en" selected>English</option>
+    <option value="ru">Русский</option>
+    <option value="uk">Українська</option>
+    <option value="es">Español</option>
+    <option value="de">Deutsch</option>
+    <option value="fr">Français</option>
+    <option value="it">Italiano</option>
+    <option value="pt">Português</option>
+    <option value="pl">Polski</option>
+    <option value="cs">Čeština</option>
+    <option value="tr">Türkçe</option>
+    <option value="nl">Nederlands</option>
+    <option value="zh">简体中文</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="ar">العربية</option>
+  </select>
+
+  <button class="reset-link" id="btn-reset" title="Clear runOnce flag from localStorage">Reset run-once flag</button>
+</div>
+
+<main>
+  <section class="hero">
+    <h1>Collaborative text annotation</h1>
+    <p>Each teammate gets their own color. Highlight what matters, surface the logic, count the emphasis.</p>
+  </section>
+
+  <div class="layout">
+
+    <aside class="panel legend">
+      <h2>Legend</h2>
+      <ul class="legend-list">
+        <li class="legend-item"><span class="legend-swatch" style="background:var(--yellow)"></span><span class="legend-name">Anna — key claims</span></li>
+        <li class="legend-item"><span class="legend-swatch" style="background:var(--green)"></span><span class="legend-name">Oliver — conclusions</span></li>
+        <li class="legend-item"><span class="legend-swatch" style="background:var(--pink)"></span><span class="legend-name">Lisa — questions</span></li>
+        <li class="legend-item"><span class="legend-swatch" style="background:var(--blue)"></span><span class="legend-name">Mark — terminology</span></li>
+      </ul>
+    </aside>
+
+    <section class="panel" id="editor-panel">
+      <h2>Document</h2>
+      <div class="toolbar" id="toolbar">
+        <span class="toolbar-label">Marker:</span>
+        <button class="marker" data-color="yellow" aria-label="Yellow"></button>
+        <button class="marker" data-color="green"  aria-label="Green"></button>
+        <button class="marker" data-color="pink"   aria-label="Pink"></button>
+        <button class="marker" data-color="blue"   aria-label="Blue"></button>
+      </div>
+      <article id="editor">
+        <p data-id="p1">Any group reading of a document hits the same wall: who is highlighting what. One reader chases the thesis, another hunts contradictions, a third collects terminology — and they all edit the same page.</p>
+        <p data-id="p2">Color-coded annotation tied to a legend makes everyone's reasoning visible without turning the margins into a wall of comments. You see at a glance: the team agreed here, Lisa raised a question there.</p>
+        <p data-id="p3">Days later you can reconstruct how the team actually read the material — without spelunking through chat threads or guessing what "agreed" really meant.</p>
+      </article>
+    </section>
+
+    <aside class="panel" id="stats-panel">
+      <h2>Summary</h2>
+      <div class="stats">
+        <div class="stat"><span class="label">Yellow</span><span class="value" id="cnt-yellow">0</span></div>
+        <div class="stat"><span class="label">Green</span><span class="value" id="cnt-green">0</span></div>
+        <div class="stat"><span class="label">Pink</span><span class="value" id="cnt-pink">0</span></div>
+        <div class="stat"><span class="label">Blue</span><span class="value" id="cnt-blue">0</span></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <footer>
+    Click <strong>Show me around</strong> in the header to start. Esc closes the tour, ← / → step through scenes.
+    Disable on mobile with <code>disableOn</code>.
+  </footer>
+</main>
+
+<script src="./onboarding-zoom.js"></script>
+<!-- Bundle of all 16 locales. In production load only what you need:
+     <script src="./locales/en.js"></script>
+     <script src="./locales/de.js"></script>            -->
+<script src="./locales/all.js"></script>
+<script>
+  // --- demo behaviour: marker buttons highlight current selection ---
+  const colors = ['yellow', 'green', 'pink', 'blue'];
+  const counters = Object.fromEntries(colors.map(c => [c, document.getElementById('cnt-' + c)]));
+
+  function applyMarker(color) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return;
+    const mark = document.createElement('mark');
+    mark.className = 'm-' + color;
+    try {
+      mark.appendChild(range.extractContents());
+      range.insertNode(mark);
+      sel.removeAllRanges();
+      counters[color].textContent = parseInt(counters[color].textContent, 10) + 1;
+    } catch (e) { console.warn('mark failed', e); }
+  }
+  document.querySelectorAll('.marker').forEach(btn => {
+    btn.addEventListener('click', () => applyMarker(btn.dataset.color));
+  });
+
+  // --- the tour itself ---
+
+  // A custom "brand" theme — any of the library's CSS variables can be overridden.
+  // Keys you don't set fall back to the matching preset.
+  const BRAND_THEME = {
+    bg: 'rgba(28, 18, 48, 0.96)',
+    fg: '#fff5e6',
+    fgMuted: 'rgba(255, 245, 230, 0.78)',
+    accent: '#ff6b6b',
+    accentStrong: '#e05151',
+    accent2: '#ffb85c',
+    spotlight: '#ff6b6b',
+    pulse: 'rgba(255, 107, 107, 0.7)',
+    cursorRing: 'rgba(255, 107, 107, 0.55)',
+    radius: '18px'
+  };
+
+  // Touch-capable device? Hide the fake cursor — it's confusing on touchscreens
+  // (real touches happen at finger location, not where the fake arrow lands).
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+
+  const tour = OnboardingZoom.create({
+    excludeFromCamera: ['.site-header', '#settings-pop'],
+    transitionMs: 750,
+    interscene: 'zoomOut',
+    revertOnEnd: true,
+    snapshotTargets: ['#editor', '#stats-panel'],
+    theme: 'dark',                       // 'dark' | 'light' | object (see BRAND_THEME above)
+    locale: 'en',                        // language code (see locales/*.js) or object
+    watchHtmlLang: true,                 // auto-sync: changing <html lang> repaints the HUD
+    localeEventName: 'app:locale',       // or: document.dispatchEvent(new CustomEvent('app:locale', {detail: 'de'}))
+    showCursor: !isTouch,                // mobile: skip the fake cursor, keep ripple+pulse only
+    // For production, swap rememberDismiss for runOnce:
+    // runOnce: true,                     // auto-start once, then localStorage remembers
+    // storageKey: 'annotate_intro_v1',   // bump the key to re-show after a feature update
+    rememberDismiss: false,
+    // No device gating: the tour runs on mobile too. Add disableOn rules here if needed.
+    disableOn: {
+      // disableBelow: 360,
+      // custom: () => navigator.connection && navigator.connection.saveData
+    },
+    scenes: [
+      // Scene 1: overview shot — set the camera scale for the whole editor block.
+      {
+        target: '#editor',
+        zoom: 1.3,
+        title: 'Collaborative editor',
+        caption: [
+          'Each paragraph can be marked in your own color.',
+          'Colors map to the teammates listed on the left.'
+        ],
+        actions: [
+          { type: 'comment', selector: '#editor', position: 'top',
+            text: 'This is where the team document lives.', holdMs: 200 }
+        ]
+      },
+
+      // Scene 2: the only zoom-in — onto a paragraph; we work at this scale from now on.
+      {
+        target: '#editor p[data-id="p1"]',
+        zoom: 1.9,
+        title: 'Step 1 — selection',
+        caption: 'Highlight a key sentence with your mouse — same as in any browser.',
+        actions: [
+          { type: 'highlight', selector: '#editor p[data-id="p1"]', holdMs: 500, hideAfter: false },
+          { type: 'moveCursor', selector: '#editor p[data-id="p1"]', offsetX: 60, offsetY: 24, duration: 700 },
+          { type: 'selectText', selector: '#editor p[data-id="p1"]', start: 0, end: 84, holdMs: 700 }
+        ]
+      },
+
+      // Scene 3: keepZoom — camera PANS to the palette without changing scale.
+      {
+        target: '#toolbar',
+        keepZoom: true,
+        title: 'Step 2 — marker',
+        caption: [
+          'The palette is bound to the active user.',
+          'One click — the fragment gets colored.'
+        ],
+        actions: [
+          { type: 'comment', selector: '.marker[data-color="yellow"]', position: 'top',
+            text: "Picking Anna's color" },
+          { type: 'pulse', selector: '.marker[data-color="yellow"]', duration: 900 },
+          { type: 'click', selector: '.marker[data-color="yellow"]', moveDuration: 600, afterMs: 400 }
+        ]
+      },
+
+      // Scene 4: keepZoom — back to the paragraph at the same scale.
+      {
+        target: '#editor p[data-id="p1"] mark',
+        keepZoom: true,
+        title: 'Result',
+        caption: 'Annotations are saved and visible to everyone in real time.',
+        actions: [
+          { type: 'highlight', selector: '#editor p[data-id="p1"] mark', holdMs: 700, hideAfter: false },
+          { type: 'comment', selector: '#editor p[data-id="p1"] mark', position: 'bottom',
+            title: 'Done',
+            text: 'Your teammates see the same fragment instantly.',
+            holdMs: 200 }
+        ]
+      },
+
+      // Scene 5: the only zoom-out — wider view with the legend.
+      {
+        target: '.legend',
+        zoom: 1.4,
+        title: 'Participants',
+        caption: [
+          "Each member has their own color — see who's looking at what.",
+          'Color in the legend = marker color in the text.'
+        ],
+        actions: [
+          { type: 'pulse', selector: '.legend-item:nth-child(1)', duration: 800 },
+          { type: 'comment', selector: '.legend-item:nth-child(1)', position: 'right',
+            text: 'Yellow is Anna' }
+        ]
+      },
+
+      // Scene 6: keepZoom — pan right to the summary at the same scale.
+      {
+        target: '#stats-panel',
+        keepZoom: true,
+        title: 'Summary',
+        caption: 'Counts of each marker live in the right column. Handy after a group review.',
+        actions: [
+          { type: 'pulse', selector: '#stats-panel', duration: 900 },
+          { type: 'comment', selector: '#stats-panel', position: 'left',
+            title: 'Takeaway',
+            text: "The team's emphasis at a glance.",
+            holdMs: 200 }
+        ]
+      }
+    ]
+    // Lifecycle hooks are available — uncomment to inspect tour events:
+    // onStart()              { console.log('[tour] started'); },
+    // onSceneEnter(scene, i) { console.log('[tour] scene', i, scene.title); },
+    // onEnd(info)            { console.log('[tour] ended', info); }
+  });
+
+  // --- settings dropdown ---
+  const settingsTrigger = document.getElementById('settings-trigger');
+  const settingsPop = document.getElementById('settings-pop');
+  function setSettingsOpen(open) {
+    settingsPop.classList.toggle('is-open', open);
+    settingsTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  settingsTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setSettingsOpen(!settingsPop.classList.contains('is-open'));
+  });
+  document.addEventListener('click', (e) => {
+    if (!settingsPop.contains(e.target) && e.target !== settingsTrigger && !settingsTrigger.contains(e.target)) {
+      setSettingsOpen(false);
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setSettingsOpen(false);
+  });
+
+  // --- theme picker ---
+  const themePicker = document.getElementById('theme-pick');
+  function applyChosenTheme() {
+    const v = themePicker.value;
+    tour.opts.theme = (v === 'brand') ? BRAND_THEME : v;
+  }
+  themePicker.addEventListener('change', applyChosenTheme);
+  applyChosenTheme();
+
+  // --- locale picker ---
+  // Three ways to switch locales — this demo uses option 1:
+  //  1. Change <html lang> — the library picks it up via watchHtmlLang: true.
+  //  2. tour.setLocale('de') — imperative.
+  //  3. document.dispatchEvent(new CustomEvent('app:locale', { detail: 'fr' }))
+  //     — works because we passed localeEventName above.
+  const langPicker = document.getElementById('lang-pick');
+  langPicker.addEventListener('change', () => {
+    document.documentElement.lang = langPicker.value;  // host page and tour both stay in sync
+  });
+  // Apply the initially selected locale.
+  document.documentElement.lang = langPicker.value;
+
+  document.getElementById('btn-start-tour').addEventListener('click', () => tour.start());
+
+  // Clear the "user has seen the tour" flag — useful when testing runOnce.
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    OnboardingZoom.resetSeen(tour.opts.storageKey);
+    alert('Flag cleared. If runOnce is enabled, reload the page and the tour will auto-start.');
+  });
+
+  // Production auto-start example:
+  // OnboardingZoom.create({ ..., runOnce: true, autoStartDelay: 800 });
+  // After the user finishes or closes the tour, the flag persists and the tour stays away.
+</script>
+
+</body>
+</html>
