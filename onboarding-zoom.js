@@ -69,7 +69,8 @@
     watchHtmlLang: false,        // observe <html lang="..."> changes and re-apply matching locale
     localeEventName: null,       // optional: also listen to a custom DOM event whose detail is locale code or object
     autoStart: false,            // start as soon as create() is called (after DOMReady)
-    autoStartDelay: 0,
+    autoStartDelay: 0,           // ms to wait between DOMReady and auto-firing start()
+    startDelay: 0,                // ms to wait inside start() before the tour actually begins (manual or auto)
     interscene: 'direct',        // 'direct' or 'zoomOut' (briefly zooms out between scenes)
     interscenePadding: 0.6,      // when interscene='zoomOut', how much to zoom out (0..1)
     locale: 'en',                // string code (must be registered in OnboardingZoom.locales) or full object
@@ -1037,6 +1038,8 @@
       this._comments = [];
       this._snapshots = null;
       this._appliedThemeProps = null;
+      this._starting = false;
+      this._startAbort = null;
 
       // autoStart: kick off on DOMReady regardless of past runs.
       // runOnce:   kick off on DOMReady only if storage flag isn't set.
@@ -1175,13 +1178,47 @@
       return { ok: true };
     }
 
-    async start() {
-      if (this.active) return false;
+    /**
+     * Start the tour.
+     * @param {Object} [opts]
+     * @param {number} [opts.delay]  Override startDelay in ms for this call only.
+     * @returns {Promise<boolean>}   false if blocked (gating, runOnce flag, no scenes, already active/starting).
+     *
+     * If startDelay (or opts.delay) is > 0, the call resolves only after the wait,
+     * and the tour can be cancelled mid-wait by calling tour.cancelStart() or tour.skip().
+     */
+    async start(opts) {
+      if (this.active || this._starting) return false;
       const can = this.canRun();
       if (!can.ok) {
         if (typeof console !== 'undefined') console.info('[oz] tour skipped:', can.reason);
         return false;
       }
+
+      const delay = (opts && opts.delay != null)
+        ? opts.delay
+        : (this.opts.startDelay || 0);
+
+      if (delay > 0) {
+        this._starting = true;
+        this._startAbort = new AbortController();
+        try {
+          await sleep(delay, this._startAbort.signal);
+        } catch (e) {
+          // cancelled during wait — do not start
+          this._starting = false;
+          this._startAbort = null;
+          return false;
+        }
+        this._startAbort = null;
+        // Re-check in case state changed during the wait.
+        if (!this._starting || this.active) {
+          this._starting = false;
+          return false;
+        }
+        this._starting = false;
+      }
+
       this.active = true;
       this._abort = new AbortController();
       this._applyTheme();
@@ -1410,7 +1447,31 @@
     }
     goto(i) { if (this.active) this._goto(i, { fast: true }); }
 
+    /**
+     * Cancel a pending start() that's waiting on startDelay.
+     * No-op if the tour is already active or no start is pending.
+     * @returns {boolean} true if a pending start was cancelled, false otherwise.
+     */
+    cancelStart() {
+      if (!this._starting) return false;
+      this._starting = false;
+      if (this._startAbort) {
+        this._startAbort.abort();
+        this._startAbort = null;
+      }
+      return true;
+    }
+
     skip() {
+      // If we're still in the startDelay wait, cancel that and bail out cleanly.
+      if (this._starting) {
+        this.cancelStart();
+        if (this.opts.rememberDismiss) {
+          try { localStorage.setItem(this.opts.storageKey, '1'); } catch (e) {}
+        }
+        this._emit('skip');
+        return;
+      }
       if (this.opts.rememberDismiss) {
         try { localStorage.setItem(this.opts.storageKey, '1'); } catch (e) {}
       }

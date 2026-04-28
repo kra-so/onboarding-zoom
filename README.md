@@ -126,7 +126,11 @@ const tour = OnboardingZoom.create({
   runOnce: false,
   storageKey: 'oz_tour_dismissed',
   autoStart: false,
-  autoStartDelay: 0,
+  autoStartDelay: 0,              // ms to wait between DOMReady and auto-firing start()
+  startDelay: 0,                  // ms to wait inside start() before the tour actually begins
+                                  //   — applies to manual tour.start() AND auto-start
+                                  //   — overridable per call: tour.start({ delay: 1500 })
+                                  //   — cancellable via tour.cancelStart() or tour.skip()
 
   // Restore DOM after the tour ends (undo clicks/typing/highlights).
   revertOnEnd: false,
