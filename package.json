@@ -1,6 +1,6 @@
 {
   "name": "onboarding-zoom",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cinematic, zoom-driven onboarding tours for live websites",
   "main": "onboarding-zoom.js",
   "browser": "onboarding-zoom.min.js",
