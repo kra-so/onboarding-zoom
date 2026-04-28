@@ -235,6 +235,175 @@
     return s.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
   }
 
+  // -----------------------------------------------------------------------
+  // JSON tour format
+  // -----------------------------------------------------------------------
+  // Bumps when the JSON shape changes in a backwards-incompatible way.
+  // Tours saved with version <= TOUR_JSON_VERSION are accepted.
+  // Tours saved with version > TOUR_JSON_VERSION trigger a warning.
+  const TOUR_JSON_VERSION = 1;
+
+  // Options that can be safely serialized to JSON (no functions, no Element refs).
+  const SERIALIZABLE_OPTS = [
+    'cameraRoot', 'excludeFromCamera',
+    'showControls', 'showCursor', 'showDim', 'lockScroll',
+    'closeOnEsc', 'keyboardNav',
+    'transitionMs', 'fastFactor', 'initialZoom',
+    'fitToViewport', 'viewportFitRatio',
+    'interscene', 'interscenePadding',
+    'rememberDismiss', 'runOnce', 'storageKey',
+    'autoStart', 'autoStartDelay', 'startDelay',
+    'revertOnEnd', 'snapshotTargets',
+    'theme', 'locale', 'watchHtmlLang', 'localeEventName',
+    'disableOn'
+  ];
+
+  function stripFunctions(v) {
+    if (v == null) return v;
+    if (typeof v === 'function') return undefined;
+    if (typeof v !== 'object') return v;
+    if (typeof Element !== 'undefined' && v instanceof Element) return undefined;
+    if (Array.isArray(v)) {
+      const out = [];
+      for (let i = 0; i < v.length; i++) {
+        const r = stripFunctions(v[i]);
+        if (r !== undefined) out.push(r);
+      }
+      return out;
+    }
+    const out = {};
+    Object.keys(v).forEach(k => {
+      const r = stripFunctions(v[k]);
+      if (r !== undefined) out[k] = r;
+    });
+    return out;
+  }
+
+  function serializeScene(scene) {
+    const out = {};
+    Object.keys(scene).forEach(k => {
+      if (typeof scene[k] === 'function') return;
+      if (k === 'actions') return; // handled separately below
+      const v = stripFunctions(scene[k]);
+      if (v !== undefined) out[k] = v;
+    });
+    if (Array.isArray(scene.actions)) {
+      out.actions = [];
+      scene.actions.forEach(a => {
+        if (!a || typeof a !== 'object') return;
+        if (a.type === 'custom') return; // fn-based actions can't survive JSON
+        const oa = {};
+        Object.keys(a).forEach(k => {
+          if (typeof a[k] === 'function') return;
+          oa[k] = a[k];
+        });
+        out.actions.push(oa);
+      });
+    }
+    return out;
+  }
+
+  // Validate an arbitrary JSON-shaped tour spec. Returns { ok, errors, warnings }.
+  // Use this BEFORE creating a tour to catch authoring mistakes early.
+  function validateTourJSON(input) {
+    const errors = [];
+    const warnings = [];
+    let data;
+    if (typeof input === 'string') {
+      try { data = JSON.parse(input); }
+      catch (e) { return { ok: false, errors: ['JSON parse error: ' + e.message], warnings: warnings }; }
+    } else {
+      data = input;
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { ok: false, errors: ['Data must be an object'], warnings: warnings };
+    }
+    if (data.version != null) {
+      if (typeof data.version !== 'number') errors.push('version must be a number');
+      else if (data.version > TOUR_JSON_VERSION) {
+        warnings.push('JSON version ' + data.version + ' is newer than this library supports (max ' + TOUR_JSON_VERSION + ')');
+      }
+    } else {
+      warnings.push('No version field — assuming v' + TOUR_JSON_VERSION);
+    }
+    if (!Array.isArray(data.scenes)) {
+      errors.push('scenes must be an array');
+    } else if (data.scenes.length === 0) {
+      errors.push('scenes array is empty');
+    } else {
+      data.scenes.forEach((s, i) => {
+        const p = 'scenes[' + i + ']';
+        if (!s || typeof s !== 'object' || Array.isArray(s)) {
+          errors.push(p + ' is not an object');
+          return;
+        }
+        if (s.target == null) errors.push(p + '.target is required');
+        else if (typeof s.target !== 'string') errors.push(p + '.target must be a string CSS selector');
+        if (s.zoom != null && (typeof s.zoom !== 'number' || s.zoom <= 0)) {
+          errors.push(p + '.zoom must be a positive number');
+        }
+        if (s.title != null && typeof s.title !== 'string') {
+          errors.push(p + '.title must be a string');
+        }
+        if (s.caption != null) {
+          const c = s.caption;
+          const ok = typeof c === 'string' || Array.isArray(c) ||
+                     (typeof c === 'object' && typeof c.html === 'string');
+          if (!ok) errors.push(p + '.caption must be a string, array of strings, or { html: "..." }');
+        }
+        if (s.actions != null) {
+          if (!Array.isArray(s.actions)) errors.push(p + '.actions must be an array');
+          else s.actions.forEach((a, j) => {
+            const ap = p + '.actions[' + j + ']';
+            if (!a || typeof a !== 'object') { errors.push(ap + ' is not an object'); return; }
+            if (!a.type) errors.push(ap + '.type is required');
+            else if (typeof a.type !== 'string') errors.push(ap + '.type must be a string');
+            else if (a.type === 'custom') warnings.push(ap + ' has type:custom — fn cannot be JSON-serialized; will be skipped at runtime');
+            else if (!ACTIONS[a.type]) errors.push(ap + '.type "' + a.type + '" is not a known action');
+            if (a.selector != null && typeof a.selector !== 'string') errors.push(ap + '.selector must be a string');
+            if (a.ms != null && typeof a.ms !== 'number') errors.push(ap + '.ms must be a number');
+            if (a.duration != null && typeof a.duration !== 'number') errors.push(ap + '.duration must be a number');
+            if (a.holdMs != null && typeof a.holdMs !== 'number') errors.push(ap + '.holdMs must be a number');
+          });
+        }
+      });
+    }
+    if (data.theme != null && typeof data.theme !== 'string' && typeof data.theme !== 'object') {
+      errors.push('theme must be a preset name or an object of CSS variable overrides');
+    }
+    if (data.locale != null && typeof data.locale !== 'string' && typeof data.locale !== 'object') {
+      errors.push('locale must be a registered code or a partial object');
+    }
+    return { ok: errors.length === 0, errors: errors, warnings: warnings };
+  }
+
+  // Build a Tour from a JSON object/string. Throws on invalid data.
+  // extraOpts can attach non-serializable things (callbacks, custom action fns) to the tour.
+  function tourFromJSON(input, extraOpts) {
+    const v = validateTourJSON(input);
+    if (!v.ok) throw new Error('Invalid tour JSON: ' + v.errors.join('; '));
+    if (v.warnings.length && typeof console !== 'undefined') {
+      v.warnings.forEach(w => console.warn('[oz] ' + w));
+    }
+    const data = (typeof input === 'string') ? JSON.parse(input) : input;
+    // Drop the version field — it's metadata, not a Tour option.
+    const opts = {};
+    Object.keys(data).forEach(k => { if (k !== 'version') opts[k] = data[k]; });
+    if (extraOpts) Object.keys(extraOpts).forEach(k => { opts[k] = extraOpts[k]; });
+    return new Tour(opts);
+  }
+
+  // Fetch a tour JSON file and instantiate. Returns Promise<Tour>.
+  // Use for tours authored externally (CMS, repo /public/tours/, S3).
+  function tourFromUrl(url, extraOpts) {
+    return fetch(url, { credentials: 'same-origin' })
+      .then(res => {
+        if (!res.ok) throw new Error('fromUrl: HTTP ' + res.status + ' for ' + url);
+        return res.json();
+      })
+      .then(json => tourFromJSON(json, extraOpts));
+  }
+
   function deepMerge(base, override) {
     const out = Object.assign({}, base);
     Object.keys(override || {}).forEach(k => {
@@ -1448,6 +1617,27 @@
     goto(i) { if (this.active) this._goto(i, { fast: true }); }
 
     /**
+     * Serialize this tour into a plain object that round-trips through JSON.
+     * - Functions (callbacks, custom action fns) are stripped silently.
+     * - Element refs are stripped — keep your selectors as strings.
+     * - The result is suitable for saving to a file, sending to a server,
+     *   or feeding back into OnboardingZoom.fromJSON().
+     */
+    toJSON() {
+      const out = {
+        version: TOUR_JSON_VERSION,
+        scenes: this.scenes.map(serializeScene)
+      };
+      SERIALIZABLE_OPTS.forEach(k => {
+        const v = this.opts[k];
+        if (v == null) return;
+        const stripped = stripFunctions(v);
+        if (stripped !== undefined) out[k] = stripped;
+      });
+      return out;
+    }
+
+    /**
      * Cancel a pending start() that's waiting on startDelay.
      * No-op if the tour is already active or no start is pending.
      * @returns {boolean} true if a pending start was cancelled, false otherwise.
@@ -1531,13 +1721,153 @@
   }
 
   // -----------------------------------------------------------------------
+  // Chain — runs multiple tours in sequence, optionally remembering progress
+  // -----------------------------------------------------------------------
+  /**
+   * Tour specs accepted by Chain:
+   *   - Tour instance              → used directly
+   *   - { url: '/tours/x.json' }   → fetched lazily on its turn
+   *   - { scenes: [...], ... }     → instantiated lazily as Tour
+   *   - string '/tours/x.json'     → treated as URL
+   *   - Promise<Tour>              → awaited
+   *   - function() => Tour|Promise → called lazily
+   */
+  class Chain {
+    constructor(opts) {
+      opts = opts || {};
+      this.opts = opts;
+      this.tours = (opts.tours || []).slice();
+      this.idx = -1;
+      this.active = false;
+      this._listeners = {};
+    }
+
+    on(evt, fn) { (this._listeners[evt] = this._listeners[evt] || []).push(fn); return this; }
+
+    _emit(evt) {
+      const args = Array.prototype.slice.call(arguments, 1);
+      (this._listeners[evt] || []).forEach(fn => { try { fn.apply(null, args); } catch (e) { console.error(e); } });
+      const k = 'on' + evt.charAt(0).toUpperCase() + evt.slice(1);
+      const cb = this.opts[k];
+      if (typeof cb === 'function') { try { cb.apply(null, args); } catch (e) { console.error(e); } }
+    }
+
+    /**
+     * Start (or resume) the chain. If rememberProgress is on and a saved index
+     * exists, the chain resumes from that tour. Returns Promise<boolean> —
+     * true when the chain ended cleanly, false if it was skipped/aborted.
+     */
+    async start() {
+      if (this.active) return false;
+      if (!this.tours.length) return false;
+      this.active = true;
+      let startIdx = 0;
+      if (this.opts.rememberProgress && this.opts.storageKey) {
+        try {
+          const saved = localStorage.getItem(this.opts.storageKey);
+          if (saved != null) {
+            const n = parseInt(saved, 10);
+            if (!isNaN(n) && n >= 0 && n < this.tours.length) startIdx = n;
+          }
+        } catch (e) {}
+      }
+      this._emit('start', { startIdx: startIdx });
+      return this._runFrom(startIdx);
+    }
+
+    async _runFrom(i) {
+      if (!this.active) return false;
+      if (i >= this.tours.length) {
+        this.active = false;
+        this._save(null);
+        this._emit('end', { skipped: false });
+        return true;
+      }
+      this.idx = i;
+      this._save(i);
+      let tour;
+      try {
+        tour = await this._resolveSpec(this.tours[i]);
+        this.tours[i] = tour;
+      } catch (e) {
+        console.warn('[oz chain] failed to resolve tour at index', i, e);
+        return this._runFrom(i + 1);
+      }
+      this._emit('tourEnter', tour, i);
+      return new Promise((resolve) => {
+        const onEnd = (info) => {
+          if (info && info.skipped && this.opts.continueOnSkip !== true) {
+            this.active = false;
+            this._emit('end', { skipped: true, idx: i });
+            resolve(false);
+          } else {
+            this._runFrom(i + 1).then(resolve);
+          }
+        };
+        tour.on('end', onEnd);
+        tour.start();
+      });
+    }
+
+    async _resolveSpec(spec) {
+      if (!spec) throw new Error('null tour spec');
+      if (spec instanceof Tour) return spec;
+      if (typeof spec === 'string') return tourFromUrl(spec);
+      if (typeof spec.then === 'function') return spec;
+      if (typeof spec === 'function') {
+        const r = spec();
+        if (r && typeof r.then === 'function') return await r;
+        return r;
+      }
+      if (spec.url) return tourFromUrl(spec.url);
+      if (spec.scenes) return tourFromJSON(spec);
+      if (spec instanceof Tour) return spec;
+      throw new Error('unrecognized tour spec at chain index');
+    }
+
+    /** Skip the rest of the chain. */
+    skip() {
+      if (!this.active) return;
+      this.active = false;
+      this._save(null);
+      this._emit('end', { skipped: true, idx: this.idx });
+    }
+
+    /** Reset saved progress so a future start() begins from index 0. */
+    reset() {
+      this.idx = -1;
+      this._save(null);
+    }
+
+    /** The currently running Tour (or null). */
+    current() { return this.idx >= 0 ? this.tours[this.idx] : null; }
+
+    _save(idx) {
+      if (!this.opts.rememberProgress || !this.opts.storageKey) return;
+      try {
+        if (idx == null) localStorage.removeItem(this.opts.storageKey);
+        else localStorage.setItem(this.opts.storageKey, String(idx));
+      } catch (e) {}
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
   return {
     version: VERSION,
+    jsonVersion: TOUR_JSON_VERSION,
     create(opts) { return new Tour(opts); },
     canRun(opts) { return new Tour(opts || {}).canRun(); },
     registerAction(name, fn) { ACTIONS[name] = fn; },
+    // Validate a JSON tour spec WITHOUT instantiating. Returns { ok, errors, warnings }.
+    validate: validateTourJSON,
+    // Build a Tour from a JSON object/string. Throws on invalid data.
+    fromJSON: tourFromJSON,
+    // Fetch + instantiate a Tour from a URL. Returns Promise<Tour>.
+    fromUrl: tourFromUrl,
+    // Run a sequence of tours. Returns a Chain instance with start/skip/reset.
+    chain(opts) { return new Chain(opts); },
     // Clear the runOnce / rememberDismiss flag so the tour can be auto-shown again.
     resetSeen(storageKey) {
       try { localStorage.removeItem(storageKey || 'oz_tour_dismissed'); } catch (e) {}

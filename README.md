@@ -271,7 +271,72 @@ OnboardingZoom.themes;                 // { dark, light } presets
 OnboardingZoom.locales;                // mutable registry of registered locales
 OnboardingZoom.registerAction(name, fn);
 OnboardingZoom.version;
+OnboardingZoom.jsonVersion;            // current tour-JSON schema version
+
+// JSON authoring & validation
+OnboardingZoom.validate(jsonOrString); // { ok, errors[], warnings[] } — no side effects
+OnboardingZoom.fromJSON(jsonOrString, extraOpts?);  // Tour — throws on invalid data
+OnboardingZoom.fromUrl(url, extraOpts?);            // Promise<Tour> — fetches & validates
+tour.toJSON();                                       // serialize a tour to a plain object
+
+// Chain multiple tours
+OnboardingZoom.chain({ tours: [...], rememberProgress: true, storageKey: 'oz_chain_v1' });
 ```
+
+### JSON tours
+
+Author once, save anywhere, validate before shipping. Useful for letting non-developers maintain content while devs control the runtime.
+
+```js
+// Export an existing tour to JSON (e.g. from your dev environment)
+const json = tour.toJSON();
+// { version: 1, scenes: [...], theme: 'dark', locale: 'en', ... }
+
+// Validate a tour spec authored by your PM
+const { ok, errors, warnings } = OnboardingZoom.validate(json);
+if (!ok) console.error(errors);
+
+// Load from a static file in your repo
+OnboardingZoom.fromUrl('/tours/welcome.json').then(tour => tour.start());
+
+// Or from a CMS / S3 / your backend
+OnboardingZoom.fromUrl('https://cdn.example.com/tours/v2/welcome.json')
+  .then(tour => tour.start());
+
+// Inject non-serializable bits (callbacks, custom action fns) at load time:
+OnboardingZoom.fromUrl('/tours/welcome.json', {
+  onEnd: ({ skipped }) => analytics.track('tour_end', { skipped })
+}).then(tour => tour.start());
+```
+
+What survives `toJSON()`: scene structure, all built-in actions, theme presets, locale codes, timing options, device gating rules. What gets stripped: callbacks (`onStart`, `onEnd`, etc.), `{ type: 'custom', fn: ... }` actions, Element references. Pass them via `extraOpts` at load time instead.
+
+### Chains
+
+Run several tours in sequence — useful for multi-page onboarding, role-specific flows, or staged feature introductions.
+
+```js
+const chain = OnboardingZoom.chain({
+  tours: [
+    '/tours/welcome.json',                   // lazy-loaded URL
+    { url: '/tours/editor.json' },           // same — explicit form
+    { scenes: [...], theme: 'light' },       // inline spec
+    OnboardingZoom.create({ scenes: [...] }) // pre-built Tour instance
+  ],
+  rememberProgress: true,                    // persist current index in localStorage
+  storageKey: 'app_onboarding_chain_v1',     // versioned key — bump to re-show
+  continueOnSkip: false,                     // skipping a tour stops the chain (default)
+  onTourSwitch: (tour, idx) => analytics.track('tour_step', { idx }),
+  onEnd: ({ skipped, idx }) => {}
+});
+
+chain.start();    // resumes from saved index if rememberProgress
+chain.skip();     // abort the rest
+chain.reset();    // forget progress — next start() begins from 0
+chain.current();  // the active Tour instance, or null
+```
+
+Each `tours[]` entry can be a Tour instance, an inline `{ scenes }` spec, a URL string, `{ url }`, a Promise, or a function returning any of the above. Resolution is lazy — the next tour isn't fetched until the current one ends, so a 5-step chain has no upfront network cost.
 
 ---
 

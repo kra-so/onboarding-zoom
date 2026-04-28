@@ -48,8 +48,8 @@
   }
   .start-tour:hover { filter: brightness(1.08); }
 
-  /* Settings dropdown trigger (gear) */
-  .settings-trigger {
+  /* Header icon buttons (gear + recorder) */
+  .icon-btn {
     appearance: none; border: 1px solid var(--line); background: white;
     cursor: pointer; padding: 0;
     color: var(--muted);
@@ -57,12 +57,33 @@
     width: 34px; height: 34px;
     display: inline-flex; align-items: center; justify-content: center;
     transition: color 120ms, border-color 120ms, background 120ms;
+    position: relative;
   }
-  .settings-trigger:hover {
+  .icon-btn:hover {
     color: var(--ink); border-color: #d2d6e0;
     background: #fafbfd;
   }
-  .settings-trigger svg { width: 16px; height: 16px; display: block; }
+  .icon-btn svg { width: 16px; height: 16px; display: block; }
+  .settings-trigger { /* alias for legacy markup */ }
+  .recorder-trigger.is-recording {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.06);
+  }
+  .recorder-trigger.is-recording::after {
+    content: '';
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    animation: rec-pulse 1.4s ease-out infinite;
+  }
+  @keyframes rec-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+    50%      { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+  }
 
   /* Popover panel */
   .settings-pop {
@@ -117,6 +138,7 @@
     .site-header .brand { font-size: 15px; }
     .start-tour { padding: 7px 11px; font-size: 12.5px; }
     .settings-pop { left: 14px; right: 14px; min-width: 0; }
+    .recorder-trigger { display: none; }   /* recording is a desktop authoring task */
   }
 
   main { max-width: 1080px; margin: 0 auto; padding: 88px 24px 64px; }
@@ -200,17 +222,31 @@
 <header class="site-header">
   <div class="brand">Annotate</div>
   <nav>
-    <button class="settings-trigger" id="settings-trigger" aria-label="Demo settings" aria-expanded="false" aria-controls="settings-pop">
+    <button class="icon-btn recorder-trigger" id="btn-author" aria-label="Tour recorder" title="Record a tour" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="6" width="14" height="12" rx="2"/>
+        <path d="M22 8l-6 4 6 4z"/>
+      </svg>
+    </button>
+    <button class="icon-btn settings-trigger" id="settings-trigger" aria-label="Demo settings" aria-expanded="false" aria-controls="settings-pop" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
     </button>
-    <button class="start-tour" id="btn-start-tour">Show me around</button>
+    <button class="start-tour" id="btn-start-tour" title="Start the onboarding tour">Show me</button>
   </nav>
 </header>
 
 <div class="settings-pop" id="settings-pop" role="dialog" aria-label="Demo settings">
+  <label class="field" for="tour-pick">Active tour</label>
+  <select id="tour-pick">
+    <option value="full" selected>Full walkthrough — 6 scenes, cinematic</option>
+    <option value="quick">Quick intro — 3 scenes, faster</option>
+    <option value="autoplay">Auto-play — 4 scenes, hands-free</option>
+    <option value="chain">Chain — Quick + Auto-play in sequence</option>
+  </select>
+
   <label class="field" for="theme-pick">Theme</label>
   <select id="theme-pick">
     <option value="dark">Dark</option>
@@ -288,7 +324,7 @@
   </div>
 
   <footer>
-    Click <strong>Show me around</strong> in the header to start. Esc closes the tour, ← / → step through scenes.
+    Click <strong>Show me</strong> in the header to start. Esc closes the tour, ← / → step through scenes.
     Disable on mobile with <code>disableOn</code>.
   </footer>
 </main>
@@ -298,6 +334,9 @@
      <script src="./locales/en.js"></script>
      <script src="./locales/de.js"></script>            -->
 <script src="./locales/all.js"></script>
+<!-- Recorder: a non-developer authoring tool. In production, gate it server-side
+     and serve only to authenticated admins. Never bundle into your public runtime. -->
+<script src="./onboarding-zoom-recorder.js"></script>
 <script>
   // --- demo behaviour: marker buttons highlight current selection ---
   const colors = ['yellow', 'green', 'pink', 'blue'];
@@ -342,123 +381,163 @@
   // (real touches happen at finger location, not where the fake arrow lands).
   const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
 
-  const tour = OnboardingZoom.create({
-    excludeFromCamera: ['.site-header', '#settings-pop'],
-    transitionMs: 750,
-    interscene: 'zoomOut',
-    revertOnEnd: true,
-    snapshotTargets: ['#editor', '#stats-panel'],
-    theme: 'dark',                       // 'dark' | 'light' | object (see BRAND_THEME above)
-    locale: 'en',                        // language code (see locales/*.js) or object
-    watchHtmlLang: true,                 // auto-sync: changing <html lang> repaints the HUD
-    localeEventName: 'app:locale',       // or: document.dispatchEvent(new CustomEvent('app:locale', {detail: 'de'}))
-    showCursor: !isTouch,                // mobile: skip the fake cursor, keep ripple+pulse only
-    // For production, swap rememberDismiss for runOnce:
-    // runOnce: true,                     // auto-start once, then localStorage remembers
-    // storageKey: 'annotate_intro_v1',   // bump the key to re-show after a feature update
-    rememberDismiss: false,
-    // No device gating: the tour runs on mobile too. Add disableOn rules here if needed.
-    disableOn: {
-      // disableBelow: 360,
-      // custom: () => navigator.connection && navigator.connection.saveData
+  // ----------------------------------------------------------------
+  //  Tour catalog — multiple flavors of the same content
+  // ----------------------------------------------------------------
+  const TOUR_SPECS = {
+    // Cinematic full walkthrough — the original 6-scene experience.
+    full: {
+      transitionMs: 750,
+      interscene: 'zoomOut',
+      scenes: [
+        { target: '#editor', zoom: 1.3, title: 'Collaborative editor',
+          caption: [
+            'Each paragraph can be marked in your own color.',
+            'Colors map to the teammates listed on the left.'
+          ],
+          actions: [
+            { type: 'comment', selector: '#editor', position: 'top',
+              text: 'This is where the team document lives.', holdMs: 200 }
+          ] },
+        { target: '#editor p[data-id="p1"]', zoom: 1.9, title: 'Step 1 — selection',
+          caption: 'Highlight a key sentence with your mouse — same as in any browser.',
+          actions: [
+            { type: 'highlight', selector: '#editor p[data-id="p1"]', holdMs: 500, hideAfter: false },
+            { type: 'moveCursor', selector: '#editor p[data-id="p1"]', offsetX: 60, offsetY: 24, duration: 700 },
+            { type: 'selectText', selector: '#editor p[data-id="p1"]', start: 0, end: 84, holdMs: 700 }
+          ] },
+        { target: '#toolbar', keepZoom: true, title: 'Step 2 — marker',
+          caption: [
+            'The palette is bound to the active user.',
+            'One click — the fragment gets colored.'
+          ],
+          actions: [
+            { type: 'comment', selector: '.marker[data-color="yellow"]', position: 'top',
+              text: "Picking Anna's color" },
+            { type: 'pulse', selector: '.marker[data-color="yellow"]', duration: 900 },
+            { type: 'click', selector: '.marker[data-color="yellow"]', moveDuration: 600, afterMs: 400 }
+          ] },
+        { target: '#editor p[data-id="p1"] mark', keepZoom: true, title: 'Result',
+          caption: 'Annotations are saved and visible to everyone in real time.',
+          actions: [
+            { type: 'highlight', selector: '#editor p[data-id="p1"] mark', holdMs: 700, hideAfter: false },
+            { type: 'comment', selector: '#editor p[data-id="p1"] mark', position: 'bottom',
+              title: 'Done', text: 'Your teammates see the same fragment instantly.', holdMs: 200 }
+          ] },
+        { target: '.legend', zoom: 1.4, title: 'Participants',
+          caption: [
+            "Each member has their own color — see who's looking at what.",
+            'Color in the legend = marker color in the text.'
+          ],
+          actions: [
+            { type: 'pulse', selector: '.legend-item:nth-child(1)', duration: 800 },
+            { type: 'comment', selector: '.legend-item:nth-child(1)', position: 'right',
+              text: 'Yellow is Anna' }
+          ] },
+        { target: '#stats-panel', keepZoom: true, title: 'Summary',
+          caption: 'Counts of each marker live in the right column. Handy after a group review.',
+          actions: [
+            { type: 'pulse', selector: '#stats-panel', duration: 900 },
+            { type: 'comment', selector: '#stats-panel', position: 'left',
+              title: 'Takeaway', text: "The team's emphasis at a glance.", holdMs: 200 }
+          ] }
+      ]
     },
-    scenes: [
-      // Scene 1: overview shot — set the camera scale for the whole editor block.
-      {
-        target: '#editor',
-        zoom: 1.3,
-        title: 'Collaborative editor',
-        caption: [
-          'Each paragraph can be marked in your own color.',
-          'Colors map to the teammates listed on the left.'
-        ],
-        actions: [
-          { type: 'comment', selector: '#editor', position: 'top',
-            text: 'This is where the team document lives.', holdMs: 200 }
-        ]
-      },
 
-      // Scene 2: the only zoom-in — onto a paragraph; we work at this scale from now on.
-      {
-        target: '#editor p[data-id="p1"]',
-        zoom: 1.9,
-        title: 'Step 1 — selection',
-        caption: 'Highlight a key sentence with your mouse — same as in any browser.',
-        actions: [
-          { type: 'highlight', selector: '#editor p[data-id="p1"]', holdMs: 500, hideAfter: false },
-          { type: 'moveCursor', selector: '#editor p[data-id="p1"]', offsetX: 60, offsetY: 24, duration: 700 },
-          { type: 'selectText', selector: '#editor p[data-id="p1"]', start: 0, end: 84, holdMs: 700 }
-        ]
-      },
+    // Quick intro — 3 scenes, faster transitions, no fake cursor choreography.
+    quick: {
+      transitionMs: 500,
+      interscene: 'direct',
+      scenes: [
+        { target: '#editor', zoom: 1.3, title: 'The document',
+          caption: 'Where the team works together.',
+          actions: [
+            { type: 'highlight', selector: '#editor', holdMs: 700 }
+          ] },
+        { target: '#toolbar', keepZoom: true, title: 'Color markers',
+          caption: 'Pick a color, highlight any text.',
+          actions: [
+            { type: 'pulse', selector: '.marker[data-color="yellow"]', duration: 800 }
+          ] },
+        { target: '.legend', zoom: 1.4, title: 'Who is who',
+          caption: 'Each color belongs to a teammate.',
+          actions: [
+            { type: 'pulse', selector: '.legend-item:nth-child(1)', duration: 700 }
+          ] }
+      ]
+    },
 
-      // Scene 3: keepZoom — camera PANS to the palette without changing scale.
-      {
-        target: '#toolbar',
-        keepZoom: true,
-        title: 'Step 2 — marker',
-        caption: [
-          'The palette is bound to the active user.',
-          'One click — the fragment gets colored.'
-        ],
-        actions: [
-          { type: 'comment', selector: '.marker[data-color="yellow"]', position: 'top',
-            text: "Picking Anna's color" },
-          { type: 'pulse', selector: '.marker[data-color="yellow"]', duration: 900 },
-          { type: 'click', selector: '.marker[data-color="yellow"]', moveDuration: 600, afterMs: 400 }
-        ]
-      },
+    // Auto-play — runs through hands-free with autoAdvance on each scene.
+    autoplay: {
+      transitionMs: 600,
+      interscene: 'direct',
+      scenes: [
+        { target: '#editor', zoom: 1.3, title: 'Document',
+          caption: 'Auto-play starts. Sit back.',
+          autoAdvance: true, autoAdvanceDelay: 1500,
+          actions: [
+            { type: 'highlight', selector: '#editor', holdMs: 1200, hideAfter: false }
+          ] },
+        { target: '#toolbar', keepZoom: true, title: 'Markers',
+          caption: 'Pick a color, highlight any text.',
+          autoAdvance: true, autoAdvanceDelay: 1600,
+          actions: [
+            { type: 'pulse', selector: '.marker[data-color="yellow"]', duration: 1100 }
+          ] },
+        { target: '.legend', zoom: 1.4, title: 'Team',
+          caption: 'Color in the legend = marker color in the text.',
+          autoAdvance: true, autoAdvanceDelay: 1800,
+          actions: [
+            { type: 'pulse', selector: '.legend-item:nth-child(1)', duration: 800 }
+          ] },
+        { target: '#stats-panel', keepZoom: true, title: 'Summary',
+          caption: "The team's emphasis at a glance.",
+          actions: [
+            { type: 'pulse', selector: '#stats-panel', duration: 900 }
+          ] }
+      ]
+    }
+  };
 
-      // Scene 4: keepZoom — back to the paragraph at the same scale.
-      {
-        target: '#editor p[data-id="p1"] mark',
-        keepZoom: true,
-        title: 'Result',
-        caption: 'Annotations are saved and visible to everyone in real time.',
-        actions: [
-          { type: 'highlight', selector: '#editor p[data-id="p1"] mark', holdMs: 700, hideAfter: false },
-          { type: 'comment', selector: '#editor p[data-id="p1"] mark', position: 'bottom',
-            title: 'Done',
-            text: 'Your teammates see the same fragment instantly.',
-            holdMs: 200 }
-        ]
-      },
+  // Common options — applied to every tour built from a spec.
+  // Kept separate so theme/locale/etc. updates can rebuild without re-typing scene structure.
+  function commonOpts() {
+    return {
+      excludeFromCamera: ['.site-header', '#settings-pop'],
+      revertOnEnd: true,
+      snapshotTargets: ['#editor', '#stats-panel'],
+      theme: themePicker.value === 'brand' ? BRAND_THEME : themePicker.value,
+      locale: 'en',
+      watchHtmlLang: true,
+      localeEventName: 'app:locale',
+      showCursor: !isTouch,
+      rememberDismiss: false
+      // For production, swap rememberDismiss for runOnce:
+      //   runOnce: true,
+      //   storageKey: 'annotate_intro_v1'
+    };
+  }
 
-      // Scene 5: the only zoom-out — wider view with the legend.
-      {
-        target: '.legend',
-        zoom: 1.4,
-        title: 'Participants',
-        caption: [
-          "Each member has their own color — see who's looking at what.",
-          'Color in the legend = marker color in the text.'
-        ],
-        actions: [
-          { type: 'pulse', selector: '.legend-item:nth-child(1)', duration: 800 },
-          { type: 'comment', selector: '.legend-item:nth-child(1)', position: 'right',
-            text: 'Yellow is Anna' }
-        ]
-      },
+  function buildTour(key) {
+    return OnboardingZoom.create(Object.assign({}, commonOpts(), TOUR_SPECS[key]));
+  }
 
-      // Scene 6: keepZoom — pan right to the summary at the same scale.
-      {
-        target: '#stats-panel',
-        keepZoom: true,
-        title: 'Summary',
-        caption: 'Counts of each marker live in the right column. Handy after a group review.',
-        actions: [
-          { type: 'pulse', selector: '#stats-panel', duration: 900 },
-          { type: 'comment', selector: '#stats-panel', position: 'left',
-            title: 'Takeaway',
-            text: "The team's emphasis at a glance.",
-            holdMs: 200 }
-        ]
-      }
-    ]
-    // Lifecycle hooks are available — uncomment to inspect tour events:
-    // onStart()              { console.log('[tour] started'); },
-    // onSceneEnter(scene, i) { console.log('[tour] scene', i, scene.title); },
-    // onEnd(info)            { console.log('[tour] ended', info); }
-  });
+  // The "chain" option in the picker doesn't have a single Tour — it's a Chain
+  // of multiple tours run in sequence. Built fresh on each Show me press.
+  function buildChain() {
+    return OnboardingZoom.chain({
+      tours: [
+        OnboardingZoom.create(Object.assign({}, commonOpts(), TOUR_SPECS.quick)),
+        OnboardingZoom.create(Object.assign({}, commonOpts(), TOUR_SPECS.autoplay))
+      ],
+      // continueOnSkip: false — closing one tour stops the chain (default)
+      onTourSwitch: (t, i) => console.log('[chain] tour', i + 1, 'of 2'),
+      onEnd: (info) => console.log('[chain] ended', info)
+    });
+  }
+
+  let activeTourKey = 'full';
+  let tour = null;  // built lazily after pickers exist; see initTour() below
 
   // --- settings dropdown ---
   const settingsTrigger = document.getElementById('settings-trigger');
@@ -482,12 +561,27 @@
 
   // --- theme picker ---
   const themePicker = document.getElementById('theme-pick');
-  function applyChosenTheme() {
-    const v = themePicker.value;
-    tour.opts.theme = (v === 'brand') ? BRAND_THEME : v;
+  // Theme is baked into the Tour at create time (it lives in CSS variables on
+  // <html> while the tour is active). When theme changes we just rebuild the
+  // active tour so the next start() picks up the new look.
+  themePicker.addEventListener('change', () => initTour());
+
+  // --- tour picker ---
+  const tourPicker = document.getElementById('tour-pick');
+  tourPicker.addEventListener('change', () => {
+    activeTourKey = tourPicker.value;
+    initTour();
+  });
+
+  // (Re)build the active tour using current settings.
+  function initTour() {
+    if (activeTourKey === 'chain') {
+      tour = null;  // chains are built fresh on Show me press
+    } else {
+      tour = buildTour(activeTourKey);
+    }
   }
-  themePicker.addEventListener('change', applyChosenTheme);
-  applyChosenTheme();
+  initTour();
 
   // --- locale picker ---
   // Three ways to switch locales — this demo uses option 1:
@@ -502,12 +596,53 @@
   // Apply the initially selected locale.
   document.documentElement.lang = langPicker.value;
 
-  document.getElementById('btn-start-tour').addEventListener('click', () => tour.start());
+  document.getElementById('btn-start-tour').addEventListener('click', () => {
+    if (activeTourKey === 'chain') {
+      buildChain().start();
+    } else {
+      tour.start();
+    }
+  });
 
   // Clear the "user has seen the tour" flag — useful when testing runOnce.
   document.getElementById('btn-reset').addEventListener('click', () => {
-    OnboardingZoom.resetSeen(tour.opts.storageKey);
+    OnboardingZoom.resetSeen(tour ? tour.opts.storageKey : undefined);
     alert('Flag cleared. If runOnce is enabled, reload the page and the tour will auto-start.');
+  });
+
+  // Recorder — header button. In production, gate this server-side
+  // (only render the button + load onboarding-zoom-recorder.js for authenticated admins).
+  let activeRecorder = null;
+  const recorderBtn = document.getElementById('btn-author');
+
+  function setRecordingUI(on) {
+    recorderBtn.classList.toggle('is-recording', on);
+    recorderBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    recorderBtn.setAttribute('title', on ? 'Stop recording' : 'Record a tour');
+  }
+
+  recorderBtn.addEventListener('click', () => {
+    if (activeRecorder && activeRecorder.recording) {
+      activeRecorder.stop();
+      activeRecorder = null;
+      setRecordingUI(false);
+      return;
+    }
+    if (typeof OnboardingZoom.recorder !== 'function') {
+      alert('Recorder script not loaded. Include onboarding-zoom-recorder.js after the main library.');
+      return;
+    }
+    activeRecorder = OnboardingZoom.recorder();
+    activeRecorder.start();
+    setRecordingUI(true);
+    // Keep the button in sync if the user closes the recorder via its own × button.
+    const origStop = activeRecorder.stop.bind(activeRecorder);
+    activeRecorder.stop = function () {
+      const r = origStop();
+      setRecordingUI(false);
+      activeRecorder = null;
+      return r;
+    };
   });
 
   // Production auto-start example:
